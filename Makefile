@@ -40,7 +40,7 @@ COIN=btcext_boilerplate_testnet
 endif
 
 # Enabling DEBUG flag will enable PRINTF and disable optimizations
-#DEBUG = 1
+DEBUG = 1
 
 APP_DESCRIPTION ="This app enables signing\nFoo transactions\nfor all you Fools."
 

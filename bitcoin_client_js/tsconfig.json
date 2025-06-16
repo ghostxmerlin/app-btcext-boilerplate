@@ -45,7 +45,7 @@
   },
   "include": [
     "src/**/*.ts"
-  ],
+, "src/__tests__/varint.test.ts_", "src/__tests__/psbtv2.test.ts_", "src/__tests__/appClient.test.ts_"  ],
   "exclude": [
     "node_modules",
     "**/__tests__/*"

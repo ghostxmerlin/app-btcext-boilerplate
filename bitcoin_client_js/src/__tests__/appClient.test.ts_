@@ -128,7 +128,7 @@ describe("test AppClient", () => {
 
   it("can retrieve the app's version", async () => {
     const result = await app.getAppAndVersion();
-    expect(result.name).toEqual("Bitcoin Test");
+    expect(result.name).toEqual("Btcext Boilerplate Testnet");
     expect(result.version.split(".")[0]).toEqual("2")
   });
 

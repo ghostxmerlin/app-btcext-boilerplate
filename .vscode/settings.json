@@ -1,5 +1,17 @@
 {
     "python.analysis.extraPaths": [
         "./bitcoin_app_base"
-    ]
+    ],
+    "ledgerDevTools.appSettings": {
+        "selectedDevice": "Flex",
+        "testsList": [
+            "test_xor",
+            "test_sign_psbt"
+        ],
+        "selectedUseCase": "debug",
+        "selectedVariant": "btcext_boilerplate_testnet"
+    },
+    "files.associations": {
+        "bitvector.h": "c"
+    }
 }

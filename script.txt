@@ -1,0 +1,7 @@
+docker run -p 5000:5000 --user $(id -u):$(id -g) --privileged -e DISPLAY='host.docker.internal:0' -v '/tmp/.X11-unix:/tmp/.X11-unix' -v '/Users/ghostxmerlin/app-btcext-boilerplate:/app'  -t -d --name app-btcext-boilerplate-container ghcr.io/ledgerhq/ledger-app-builder/ledger-app-dev-tools:latest 
+
+docker exec -it -u 0 app-btcext-boilerplate-container bash -c 'export BOLOS_SDK=$FLEX_SDK && bash'  
+
+speculos --model flex --debug build/flex/bin/app.elf
+
+docker exec -it app-btcext-boilerplate-container bash -c 'speculos --model flex build/flex/bin/app.elf' 

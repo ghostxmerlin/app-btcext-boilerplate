@@ -43,6 +43,7 @@ static uint8_t external_input_scriptPubKey[P2TR_SCRIPTPUBKEY_LEN];
  *         process the APDU as usual.
  */
 bool custom_apdu_handler(dispatcher_context_t *dc, const command_t *cmd) {
+    PRINTF("Custom APDU handler called with CLA: 0x%02x, INS: 0x%02x\n", cmd->cla, cmd->ins);
     if (cmd->cla != CLA_APP) {
         return false;
     }

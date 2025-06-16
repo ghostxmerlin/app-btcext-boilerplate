@@ -421,7 +421,7 @@ export class AppClient {
       throw new Error('Invalid address index');
     const appAndVer = await this.getAppAndVersion();
     let network;
-    if (appAndVer.name === 'Bitcoin Test') {
+    if (appAndVer.name === 'Btcext Boilerplate Testnet') {
       network = networks.testnet;
     } else if (appAndVer.name === 'Bitcoin') {
       network = networks.bitcoin;
