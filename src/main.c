@@ -238,6 +238,9 @@ bool validate_and_display_transaction(dispatcher_context_t *dc,
                                       sign_psbt_state_t *st,
                                       const uint8_t internal_inputs[64],
                                       const uint8_t internal_outputs[64]) {
+    PRINTF("!!!!!!!1*****************  Validating and displaying transaction\n");  
+    PRINTF_BUF(internal_inputs, 64);       
+    PRINTF_BUF(internal_outputs, 64);                             
     if (!validate_transaction(dc, st, internal_inputs, internal_outputs)) {
         return false;
     }
@@ -279,7 +282,7 @@ bool sign_custom_inputs(
     UNUSED(dc), UNUSED(st), UNUSED(tx_hashes), UNUSED(internal_inputs);
 
     uint8_t sighash[32];
-
+    PRINTF("!!!!!!!1***************** Signing custom inputs\n");  
     // compute the sighash for the special input
 
     if (!compute_sighash_segwitv1(dc,
@@ -295,7 +298,7 @@ bool sign_custom_inputs(
         PRINTF("Failed to compute the sighash\n");
         return false;
     }
-
+    PRINTF("!!!!!!!1***************** compute_sighash_segwitv1\n");      
     if (!sign_sighash_schnorr_and_yield(dc,
                                         st,
                                         external_input_index,
@@ -309,6 +312,6 @@ bool sign_custom_inputs(
         PRINTF("Signing failed\n");
         return false;
     }
-
+    PRINTF("!!!!!!!1***************** sign_sighash_schnorr_and_yield\n");  
     return true;
 }

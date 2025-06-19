@@ -12,6 +12,15 @@
 #define ICON_APP_ACTION C_app_logo_inv
 #endif
 
+#define PRINTF_BUF(ptr, len)                              \
+    do {                                                  \
+        PRINTF("Buffer: ");                               \
+        for (uint32_t i = 0; i < (uint32_t) (len); i++) { \
+            PRINTF("%02X", (ptr)[i]);                     \
+        }                                                 \
+        PRINTF("\n");                                     \
+    } while (0)
+
 bool display_transaction(dispatcher_context_t *dc,
                          int64_t value_spent,
                          uint64_t magic_input_value,
