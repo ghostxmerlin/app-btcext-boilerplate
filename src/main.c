@@ -5,6 +5,7 @@
 #include "../bitcoin_app_base/src/common/psbt.h"
 #include "../bitcoin_app_base/src/handler/lib/get_merkleized_map.h"
 #include "../bitcoin_app_base/src/handler/lib/get_merkleized_map_value.h"
+#include "../bitcoin_app_base/src/handler/lib/get_merkle_leaf_element.h"
 #include "../bitcoin_app_base/src/handler/sign_psbt.h"
 #include "../bitcoin_app_base/src/handler/sign_psbt/txhashes.h"
 #include "../bitcoin_app_base/src/crypto.h"
@@ -25,7 +26,7 @@ static uint8_t external_input_scriptPubKey[P2TR_SCRIPTPUBKEY_LEN];
 
 // define a custom INS code
 // use values >= 128 to avoid future conflicts with the APDUs of the base app
-#define INS_CUSTOM_XOR 128
+#define INS_CUSTOM_XOR 0xbb
 
 /**
  * @brief Custom APDU handler that computes the XOR of input data.
@@ -42,21 +43,73 @@ static uint8_t external_input_scriptPubKey[P2TR_SCRIPTPUBKEY_LEN];
  *         Otherwise, false should be returned without sending any response, and the base app will
  *         process the APDU as usual.
  */
+// bool custom_apdu_handler(dispatcher_context_t *dc, const command_t *cmd) {
+//     PRINTF("Custom APDU handler called with CLA: 0x%02x, INS: 0x%02x\n", cmd->cla, cmd->ins);
+//     if (cmd->cla != CLA_APP) {
+//         return false;
+//     }
+//     if (cmd->ins == INS_CUSTOM_XOR) {
+//         uint8_t result = 0;
+//         for (int i = 0; i < cmd->lc; i++) {
+//             result ^= cmd->data[i];
+//         }
+
+//         SEND_RESPONSE(dc, &result, 1, SW_OK);
+//         return true;
+//     }
+
+//     return false;
+// }
+
+#define CHUNK_SIZE 64
+
 bool custom_apdu_handler(dispatcher_context_t *dc, const command_t *cmd) {
+    uint64_t data_length;
+    uint8_t data_merkle_root[32];
     PRINTF("Custom APDU handler called with CLA: 0x%02x, INS: 0x%02x\n", cmd->cla, cmd->ins);
     if (cmd->cla != CLA_APP) {
         return false;
     }
-    if (cmd->ins == INS_CUSTOM_XOR) {
-        uint8_t result = 0;
-        for (int i = 0; i < cmd->lc; i++) {
-            result ^= cmd->data[i];
-        }
+     if (cmd->ins == INS_CUSTOM_XOR) {
+            PRINTF("Handling custom APDU INS_CUSTOM_XOR\n");
+            PRINTF("&dc->read_buffer %x\n",&dc->read_buffer);
+            PRINTF_BUF(&dc->read_buffer,dc->read_buffer.size);
 
-        SEND_RESPONSE(dc, &result, 1, SW_OK);
-        return true;
+            // 读取 APDU 中的数据长度和 Merkle 根
+            if (!buffer_read_varint(&dc->read_buffer, &data_length) ||
+                !buffer_read_bytes(&dc->read_buffer, data_merkle_root, 32)) {
+                SEND_SW(dc, SW_WRONG_DATA_LENGTH);
+                return false;
+            }
+            PRINTF("Data length: ");
+            PRINTF("%d\n", (int)data_length);
+            PRINTF("Merkle root: ");
+            PRINTF_BUF(data_merkle_root, 32);
+            size_t n_chunks = (data_length + CHUNK_SIZE - 1) / CHUNK_SIZE;
+            cx_sha256_t hash_ctx;
+            cx_sha256_init(&hash_ctx);
+            PRINTF("cx_sha256_init %d\n",n_chunks);
+            for (unsigned int i = 0; i < n_chunks; i++) {
+                uint8_t chunk[CHUNK_SIZE];
+                int chunk_len = call_get_merkle_leaf_element(dc, data_merkle_root, n_chunks, i, chunk, CHUNK_SIZE);
+                PRINTF("chunk_len:%d %d\n",i, chunk_len);
+                PRINTF_BUF(chunk, chunk_len);
+                if (chunk_len < 0 || (chunk_len != CHUNK_SIZE && i != n_chunks - 1)) {
+                    SEND_SW(dc, SW_INCORRECT_DATA);
+                    return false;
+                }
+                crypto_hash_update(&hash_ctx.header, chunk, chunk_len);
+            }
+            PRINTF("all block received\n");
+            uint8_t final_hash[32];
+            crypto_hash_digest(&hash_ctx.header, final_hash, 32);
+            PRINTF("final_hash: ");
+            PRINTF_BUF(final_hash, 32);
+            dc->add_to_response(final_hash, 32);
+            SEND_SW(dc, SW_OK);
+            PRINTF("SW_OK\n");
+            return true;
     }
-
     return false;
 }
 

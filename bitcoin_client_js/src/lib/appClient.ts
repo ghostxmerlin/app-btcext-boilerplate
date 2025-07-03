@@ -77,7 +77,7 @@ export class AppClient {
     this.transport = transport;
   }
 
-  private async makeRequest(
+  public async makeRequest(
     ins: BitcoinIns,
     data: Buffer,
     cci?: ClientCommandInterpreter
@@ -477,6 +477,28 @@ export class AppClient {
         `Third party address validation mismatch: ${address} != ${thirdPartyGeneratedAddress}`
       );
   }
+}
+
+export async function sendMerkleizedData(
+  app: { makeRequest: (ins: number, payload: Buffer, interpreter: ClientCommandInterpreter) => Promise<Buffer> },
+  ins: number,
+  payload: Buffer
+): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for (let i = 0; i < payload.length; i += 64) {
+    chunks.push(payload.subarray(i, i + 64));
+  }
+
+  const interpreter = new ClientCommandInterpreter();
+  interpreter.addKnownList(chunks);
+
+  const root = new Merkle(chunks.map((chunk) => hashLeaf(chunk))).getRoot();
+  const header = Buffer.concat([
+    createVarint(payload.length),
+    root,
+  ]);
+
+  return await app.makeRequest(ins, header, interpreter);
 }
 
 export default AppClient;
