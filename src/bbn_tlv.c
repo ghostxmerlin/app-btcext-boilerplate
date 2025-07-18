@@ -1,6 +1,6 @@
 #include <stdbool.h>
 #include <stdint.h>
-#include "bbn_data_def.h"
+#include "bbn_data.h"
 #include "bbn_tlv.h"
 #include "display.h"
 
