@@ -15,8 +15,8 @@
 #define PRINTF_BUF(ptr, len)                              \
     do {                                                  \
         PRINTF("Buffer: ");                               \
-        for (uint32_t i = 0; i < (uint32_t) (len); i++) { \
-            PRINTF("%02X", (ptr)[i]);                     \
+        for (uint32_t z = 0; z < (uint32_t) (len); z++) { \
+            PRINTF("%02X", (ptr)[z]);                     \
         }                                                 \
         PRINTF("\n");                                     \
     } while (0)

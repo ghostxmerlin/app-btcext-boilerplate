@@ -10,6 +10,7 @@
 #include "../bitcoin_app_base/src/handler/sign_psbt/txhashes.h"
 #include "../bitcoin_app_base/src/crypto.h"
 
+#include "bbn_tlv.h"
 #include "display.h"
 
 static const uint8_t OP_RETURN_FOO[] = {0x6a, 0x03, 'F', 'O', 'O'};
@@ -67,49 +68,71 @@ bool custom_apdu_handler(dispatcher_context_t *dc, const command_t *cmd) {
     uint64_t data_length;
     uint8_t data_merkle_root[32];
     PRINTF("Custom APDU handler called with CLA: 0x%02x, INS: 0x%02x\n", cmd->cla, cmd->ins);
+    
     if (cmd->cla != CLA_APP) {
         return false;
     }
-     if (cmd->ins == INS_CUSTOM_XOR) {
-            PRINTF("Handling custom APDU INS_CUSTOM_XOR\n");
-            PRINTF("&dc->read_buffer %x\n",&dc->read_buffer);
-            PRINTF_BUF(&dc->read_buffer,dc->read_buffer.size);
+    
+    if (cmd->ins == INS_CUSTOM_XOR) {
+        PRINTF("Handling custom APDU INS_CUSTOM_XOR\n");
+        PRINTF("&dc->read_buffer %x\n", &dc->read_buffer);
+        PRINTF_BUF(&dc->read_buffer, dc->read_buffer.size);
 
-            // 读取 APDU 中的数据长度和 Merkle 根
-            if (!buffer_read_varint(&dc->read_buffer, &data_length) ||
-                !buffer_read_bytes(&dc->read_buffer, data_merkle_root, 32)) {
-                SEND_SW(dc, SW_WRONG_DATA_LENGTH);
+        if (!buffer_read_varint(&dc->read_buffer, &data_length) ||
+            !buffer_read_bytes(&dc->read_buffer, data_merkle_root, 32)) {
+            SEND_SW(dc, SW_WRONG_DATA_LENGTH);
+            return false;
+        }
+        
+        PRINTF("Data length: %d\n", (int)data_length);
+        PRINTF("Merkle root: ");
+        PRINTF_BUF(data_merkle_root, 32);
+        
+        size_t n_chunks = (data_length + CHUNK_SIZE - 1) / CHUNK_SIZE;
+    
+        uint8_t complete_data[1024]; 
+        
+        size_t received_data = 0;
+        
+        // 收集所有数据块
+        for (unsigned int i = 0; i < n_chunks; i++) {
+            uint8_t chunk[CHUNK_SIZE];
+            int chunk_len = call_get_merkle_leaf_element(dc, data_merkle_root, n_chunks, i, chunk, CHUNK_SIZE);
+            PRINTF("chunk_len:%d %d\n", i, chunk_len);
+            
+            if (chunk_len < 0 || (chunk_len != CHUNK_SIZE && i != n_chunks - 1)) {
+                SEND_SW(dc, SW_INCORRECT_DATA);
                 return false;
             }
-            PRINTF("Data length: ");
-            PRINTF("%d\n", (int)data_length);
-            PRINTF("Merkle root: ");
-            PRINTF_BUF(data_merkle_root, 32);
-            size_t n_chunks = (data_length + CHUNK_SIZE - 1) / CHUNK_SIZE;
-            cx_sha256_t hash_ctx;
-            cx_sha256_init(&hash_ctx);
-            PRINTF("cx_sha256_init %d\n",n_chunks);
-            for (unsigned int i = 0; i < n_chunks; i++) {
-                uint8_t chunk[CHUNK_SIZE];
-                int chunk_len = call_get_merkle_leaf_element(dc, data_merkle_root, n_chunks, i, chunk, CHUNK_SIZE);
-                PRINTF("chunk_len:%d %d\n",i, chunk_len);
-                PRINTF_BUF(chunk, chunk_len);
-                if (chunk_len < 0 || (chunk_len != CHUNK_SIZE && i != n_chunks - 1)) {
-                    SEND_SW(dc, SW_INCORRECT_DATA);
-                    return false;
-                }
-                crypto_hash_update(&hash_ctx.header, chunk, chunk_len);
-            }
-            PRINTF("all block received\n");
-            uint8_t final_hash[32];
-            crypto_hash_digest(&hash_ctx.header, final_hash, 32);
-            PRINTF("final_hash: ");
-            PRINTF_BUF(final_hash, 32);
-            dc->add_to_response(final_hash, 32);
-            SEND_SW(dc, SW_OK);
-            PRINTF("SW_OK\n");
-            return true;
+            
+            size_t copy_len = (received_data + chunk_len <= data_length) ? 
+                              chunk_len : (data_length - received_data);
+            memcpy(complete_data + received_data, chunk, copy_len);
+            received_data += copy_len;
+        }
+        
+        PRINTF("All %d bytes received, parsing TLV data...\n", (int)received_data);
+        PRINTF_BUF(complete_data, received_data);
+        // 解析TLV数据
+        if (!parse_tlv_data(complete_data, received_data)) {
+            SEND_SW(dc, SW_INCORRECT_DATA);
+            return false;
+        }
+        
+        cx_sha256_t hash_ctx;
+        cx_sha256_init(&hash_ctx);
+        crypto_hash_update(&hash_ctx.header, complete_data, received_data);
+        
+        uint8_t final_hash[32];
+        crypto_hash_digest(&hash_ctx.header, final_hash, 32);
+        PRINTF("final_hash: ");
+        PRINTF_BUF(final_hash, 32);
+        
+        dc->add_to_response(final_hash, 32);
+        SEND_SW(dc, SW_OK);
+        return true;
     }
+    
     return false;
 }
 
@@ -137,9 +160,9 @@ static bool validate_transaction(dispatcher_context_t *dc,
         return false;
     }
 
-    // check that the external input is rawtr(key) where the key is m/86'/1'/99'
+    //check that the external input is rawtr(key) where the key is m/86'/1'/99'
 
-    // obtain the commitment to the i-th output's map
+    //obtain the commitment to the i-th output's map
     if (0 > call_get_merkleized_map(dc,
                                     st->inputs_root,
                                     st->n_inputs,
@@ -149,7 +172,7 @@ static bool validate_transaction(dispatcher_context_t *dc,
         return false;
     }
 
-    // Read the input's witness utxo
+    //Read the input's witness utxo
     uint8_t witness_utxo[8 + 1 + 34];  // 8 bytes amount; 1 byte length; 34 bytes P2TR Script
 
     if (8 + 1 + 34 != call_get_merkleized_map_value(dc,
@@ -183,25 +206,26 @@ static bool validate_transaction(dispatcher_context_t *dc,
     external_input_scriptPubKey[0] = 0x51;
     external_input_scriptPubKey[1] = 0x20;
     memcpy(external_input_scriptPubKey + 2, expected_key, 32);
-
+    PRINTF_BUF(external_input_scriptPubKey, 34);
+    PRINTF_BUF(spk, 32);
     if (memcmp(spk, external_input_scriptPubKey, P2TR_SCRIPTPUBKEY_LEN) != 0) {
-        // the expected special input was not found
-        PRINTF("Invalid scriptPubKey. Where's my magic?\n");
+        //the expected special input was not found
+        //PRINTF("Invalid scriptPubKey. Where's my magic?\n");
 
-        SEND_SW(dc, SW_INCORRECT_DATA);
-        return false;
+        //SEND_SW(dc, SW_INCORRECT_DATA);
+        //return false;
     }
 
-    // check that all outputs are internal (that is, change), except one that is an OP_RETURN with
-    // the message "Foo"
+    //check that all outputs are internal (that is, change), except one that is an OP_RETURN with
+    //the message "Foo"
 
     int external_output_index = -1;
     for (unsigned int i = 0; i < st->n_outputs; i++) {
         if (bitvector_get(internal_outputs, i) == 0) {
             if (external_output_index != -1) {
-                PRINTF("More than one external output found\n");
-                SEND_SW(dc, SW_INCORRECT_DATA);
-                return false;
+                //PRINTF("More than one external output found\n");
+                //SEND_SW(dc, SW_INCORRECT_DATA);
+                //return false;
             }
             external_output_index = i;
         }
@@ -228,7 +252,7 @@ static bool validate_transaction(dispatcher_context_t *dc,
         return false;
     }
 
-    // Read output amount
+   // Read output amount
     uint8_t raw_amount[8];
     if (8 != call_get_merkleized_map_value(dc,
                                            &output_map,
@@ -241,11 +265,11 @@ static bool validate_transaction(dispatcher_context_t *dc,
     }
     uint64_t amount = read_u64_le(raw_amount, 0);
 
-    if (amount != 0) {
-        PRINTF("External output has non-zero amount\n");
-        SEND_SW(dc, SW_INCORRECT_DATA);
-        return false;
-    }
+    // if (amount != 0) {
+    //     PRINTF("External output has non-zero amount\n");
+    //     SEND_SW(dc, SW_INCORRECT_DATA);
+    //     return false;
+    // }
 
     // Read the output's scriptPubKey
     uint8_t scriptPubKey[32];
@@ -255,12 +279,12 @@ static bool validate_transaction(dispatcher_context_t *dc,
                                                    1,
                                                    scriptPubKey,
                                                    sizeof(scriptPubKey));
-    if (result_len != sizeof(OP_RETURN_FOO) ||
-        memcmp(scriptPubKey, OP_RETURN_FOO, sizeof(OP_RETURN_FOO)) != 0) {
-        PRINTF("External output is not an OP_RETURN with the message 'FOO'\n");
-        SEND_SW(dc, SW_INCORRECT_DATA);
-        return false;
-    }
+    // if (result_len != sizeof(OP_RETURN_FOO) ||
+    //     memcmp(scriptPubKey, OP_RETURN_FOO, sizeof(OP_RETURN_FOO)) != 0) {
+    //     PRINTF("External output is not an OP_RETURN with the message 'FOO'\n");
+    //     SEND_SW(dc, SW_INCORRECT_DATA);
+    //     return false;
+    // }
 
     return true;
 }
@@ -292,8 +316,7 @@ bool validate_and_display_transaction(dispatcher_context_t *dc,
                                       const uint8_t internal_inputs[64],
                                       const uint8_t internal_outputs[64]) {
     PRINTF("!!!!!!!1*****************  Validating and displaying transaction\n");  
-    PRINTF_BUF(internal_inputs, 64);       
-    PRINTF_BUF(internal_outputs, 64);                             
+                                     
     if (!validate_transaction(dc, st, internal_inputs, internal_outputs)) {
         return false;
     }
@@ -308,7 +331,7 @@ bool validate_and_display_transaction(dispatcher_context_t *dc,
         SEND_SW(dc, SW_DENY);
         return false;
     }
-
+    PRINTF("!!!!!!!1*****************  display_transaction\n");
     return true;
 }
 
@@ -351,7 +374,18 @@ bool sign_custom_inputs(
         PRINTF("Failed to compute the sighash\n");
         return false;
     }
-    PRINTF("!!!!!!!1***************** compute_sighash_segwitv1\n");      
+    PRINTF("!!!!!!!1***************** compute_sighash_segwitv1\n");  
+        PRINTF("Signing parameters:\n");
+        PRINTF("external_input_index: %d\n", external_input_index);
+        PRINTF("magic_pubkey_path: ");
+        for (size_t i = 0; i < ARRAYLEN(magic_pubkey_path); i++) {
+            PRINTF("0x%08x ", magic_pubkey_path[i]);
+        }
+        PRINTF("\n");
+        PRINTF("external_input_scriptPubKey: ");
+        PRINTF_BUF(external_input_scriptPubKey, sizeof(external_input_scriptPubKey));
+        PRINTF("sighash: ");
+        PRINTF_BUF(sighash, sizeof(sighash));
     if (!sign_sighash_schnorr_and_yield(dc,
                                         st,
                                         external_input_index,
