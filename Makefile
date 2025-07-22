@@ -45,11 +45,11 @@ DEBUG = 1
 APP_DESCRIPTION ="This app enables signing\nFoo transactions\nfor all you Fools."
 
 ifeq ($(COIN),btcext_boilerplate)
-APPNAME ="Btcext Boilerplate"
+APPNAME ="Btcext Babylon"
 BITCOIN_NETWORK =mainnet
 
 else ifeq ($(COIN),btcext_boilerplate_testnet)
-APPNAME ="Btcext Boilerplate Testnet"
+APPNAME ="Btcext Babylon Testnet"
 BITCOIN_NETWORK =testnet
 
 else ifeq ($(filter clean,$(MAKECMDGOALS)),)
