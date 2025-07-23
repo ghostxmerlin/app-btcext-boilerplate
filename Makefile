@@ -60,9 +60,9 @@ APP_SOURCE_PATH += bitcoin_app_base/src src
 
 # Application icons following guidelines:
 # https://developers.ledger.com/docs/embedded-app/design-requirements/#device-icon
-ICON_NANOX = icons/nanox_app_foo.gif
-ICON_NANOSP = icons/nanox_app_foo.gif
-ICON_STAX = icons/stax_app_foo.gif
-ICON_FLEX = icons/flex_app_foo.gif
+ICON_NANOX = icons/nanox_app_babylon.gif
+ICON_NANOSP = icons/nanox_app_babylon.gif
+ICON_STAX = icons/stax_app_babylon.gif
+ICON_FLEX = icons/flex_app_babylon.gif
 
 include bitcoin_app_base/Makefile
