@@ -25,10 +25,10 @@ APPVERSION_N = 1
 APPVERSION_P = 0
 APPVERSION = "$(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)"
 
-APPDEVELOPPER="Ledger"
-APPCOPYRIGHT="(c) 2025 Ledger"
+APPDEVELOPPER="Tomo"
+APPCOPYRIGHT="(c) 2025 Tomo"
 
-VARIANT_VALUES = btcext_boilerplate btcext_boilerplate_testnet
+VARIANT_VALUES = BBNST BBNST_test
 
 # Application source files
 # There is no additional sources for bitcoin
@@ -36,20 +36,20 @@ VARIANT_VALUES = btcext_boilerplate btcext_boilerplate_testnet
 
 # simplify for tests
 ifndef COIN
-COIN=btcext_boilerplate_testnet
+COIN=BBNST_test
 endif
 
 # Enabling DEBUG flag will enable PRINTF and disable optimizations
 DEBUG = 1
 
-APP_DESCRIPTION ="This app enables signing\nFoo transactions\nfor all you Fools."
+APP_DESCRIPTION ="This app enables staking Bitcoin with Babylon"
 
-ifeq ($(COIN),btcext_boilerplate)
-APPNAME ="Btcext Babylon"
+ifeq ($(COIN),BBNST)
+APPNAME ="Babylon BTC Staking"
 BITCOIN_NETWORK =mainnet
 
-else ifeq ($(COIN),btcext_boilerplate_testnet)
-APPNAME ="Btcext Babylon Testnet"
+else ifeq ($(COIN),BBNST_test)
+APPNAME ="Babylon BTC Test"
 BITCOIN_NETWORK =testnet
 
 else ifeq ($(filter clean,$(MAKECMDGOALS)),)
