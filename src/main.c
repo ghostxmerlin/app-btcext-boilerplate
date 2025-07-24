@@ -466,8 +466,28 @@ bool validate_and_display_transaction(dispatcher_context_t *dc,
         PRINTF("display_external_outputs fail \n");
         return false;
     }
-
-    if (!display_transaction(dc, total_output_amount, external_input_scriptPubKey, fee)) {
+    // 提取第一个 internal output 的 amount
+    int first_internal_output_index = -1;
+    for (unsigned int i = 0; i < st->n_outputs; i++) {
+        if (bitvector_get(internal_outputs, i)) {
+            first_internal_output_index = i;
+            break;
+        }
+    }
+    uint64_t first_internal_output_amount;
+    if (first_internal_output_index != -1) {
+        uint8_t scriptPubKey[MAX_OUTPUT_SCRIPTPUBKEY_LEN];
+        size_t scriptPubKey_len;
+        
+        if (get_output_script_and_amount(dc, st, first_internal_output_index, scriptPubKey, &scriptPubKey_len, &first_internal_output_amount)) {
+            PRINTF("First internal output amount: %d satoshi\n", (uint32_t)first_internal_output_amount);
+        } else {
+            PRINTF("Failed to get first internal output amount\n");
+        }
+    } else {
+        PRINTF("No internal output found\n");
+    }
+    if (!display_transaction(dc, first_internal_output_amount, external_input_scriptPubKey, fee)) {
         SEND_SW(dc, SW_DENY);
         return false;
     }
